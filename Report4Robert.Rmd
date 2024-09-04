@@ -1,0 +1,263 @@
+---
+title: "Farm dam emissions & NP data report"
+author: "Dr Pawel Waryszak"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    keep_md: true
+    code_folding: hide
+    warning: false
+    message: false
+    collapse: true
+  word_document: default
+  pdf_document: default
+---
+
+
+```{r setup, include=FALSE, message=FALSE, warning=FALSE}
+
+# Load necessary libraries ( e.g., install.packages("knitr") if not present on your comp)
+library(tidyverse)
+library(dplyr)
+library(lubridate)
+library(readxl)
+library(knitr)
+library(gt)
+
+#SET WORKING DIRECTORY where data excel files are:
+setwd("C:/Users/poles/Documents/00Deakin_Docs/R/BCL_R/FarmDams/DATA_Toowoomba")
+
+# Define MyFarmer for this report (see Site column in field_data or farmers names)
+MyFarmer <- "Robert_Huth"
+
+# Read the data
+field_data <- read_excel("Farm_Dams_Toowoomba_Data.xlsx", sheet = "FarmDams") #continuously updated on TEAMs (see TealCarbonGroup)
+water_data <- read_excel("Farm_Dams_Toowoomba_Data.xlsx", sheet = "WATER_DATA") #continuously updated on TEAMs (see TealCarbonGroup)
+
+emission_data <- read.csv("MethaneData_PawelToowoomba_Pondi_29.csv") #also on Teams downloaded from deployed Pondi.
+emission_data$Date.Time.UTC.10 <-   as.POSIXct(emission_data$Date.Time.UTC.10 ,"%d/%m/%Y %H:%M",  tz="UTC")#convert to time format that R can  work with
+
+
+# Filter field_data for MyFarmer
+farms <- field_data %>% 
+  filter(grepl(MyFarmer, FarmDam_ID)) %>% 
+  select(FarmDam_ID, TimeStart, TimeEnd)
+
+
+
+```
+
+
+## Introduction
+
+This document reports the average methane (CH4)and carbon dioxide (CO2) emissions (+-Standard error bars) as recorded by Pondi - our floating sensor. The water nitrogen (N) and phosphorus (P) content are preseted as reported by Eurofins lab in Brisbane based off ~1L water samples we collected  during the farm dam campaign in Queensland at the farm owned by `r MyFarmer` where we tested the following farm dams:
+
+```{r}
+
+# Create a nice table with gt
+farms %>%
+  gt() %>%
+  tab_header(
+    title = "Farm Dam Information",
+    subtitle = "Data for Selected Farmer"
+  ) %>%
+  cols_label(
+    FarmDam_ID = "Farm Dam ID",
+    TimeStart = "Start Time",
+    TimeEnd = "End Time"
+  ) %>%
+  tab_style(
+    style = list(
+      cell_fill(color = "lightblue"),
+      cell_text(weight = "bold")
+    ),
+    locations = cells_title(groups = "title")
+  ) %>%
+  tab_style(
+    style = cell_borders(sides = "all", weight = px(1)),
+    locations = cells_body()
+  )
+
+
+```
+
+
+## CO2 emission
+
+```{r, include=TRUE, message=FALSE, warning=FALSE}
+
+# Define a function to process and plot data for a given FarmDam_ID
+plot_emissions <- function(farmdam_id) {
+  # Extract start and end times for the current farm dam
+  start_time <- farms %>% 
+    filter(FarmDam_ID == farmdam_id) %>% 
+    select(TimeStart) %>% 
+    pull()
+  
+  end_time <- farms %>% 
+    filter(FarmDam_ID == farmdam_id) %>% 
+    select(TimeEnd) %>% 
+    pull()
+  
+  emission_start_time <- as.POSIXct(strptime(start_time, "%d/%m/%Y %H:%M", tz="UTC"))
+  emission_end_time <- as.POSIXct(strptime(end_time, "%d/%m/%Y %H:%M", tz="UTC"))
+  
+  start <- as.Date(emission_start_time)
+  end <- as.Date(emission_end_time)
+  
+
+  # Filter and summarize CO2 data
+  CO2_filtered_data <- emission_data %>% 
+    filter(Date.Time.UTC.10 >= emission_start_time & Date.Time.UTC.10 <= emission_end_time) %>% 
+    filter(Total.CO2.Est...mg.m.2.day. > 0) %>% # Remove negative emission logs
+    group_by(Site) %>%
+    summarise(Latitude = mean(Latitude..DD., na.rm = TRUE),
+              Longitude = mean(Longitude..DD., na.rm = TRUE),
+              AV = mean(Total.CO2.Est...mg.m.2.day. , na.rm = TRUE),
+              SD = sd(Total.CO2.Est...mg.m.2.day.) ,
+              N = length(Total.CO2.Est...mg.m.2.day.) ,
+              SE = SD / sqrt(N)) %>%
+    mutate(Gas = "CO2")
+  
+  # Generate a barplot for CO2 emissions
+  plot <- ggplot(CO2_filtered_data, aes(x = Site, y = AV)) +
+    geom_bar(position = "identity", stat = "identity", fill = "#b2df8a") +
+    geom_errorbar(aes(ymin = AV - SE, ymax = AV + SE), width = 0.8, size = 1.1) +
+    
+      geom_text(aes(label = paste0("n = ", N)), 
+            position = position_stack(vjust = 0.5), 
+            vjust = -0.5, 
+            size = 6) +
+    
+    labs(title = paste("Farm Dam ID:", farmdam_id, "[", start, " to ", end, "]"),
+         subtitle = paste("Located at:", CO2_filtered_data$Latitude[1], ",", CO2_filtered_data$Longitude[1]),
+         x = "", y = bquote("CO"[2] ~ "flux " ~(mg * ~m^-2 ~day^-1))) +
+    theme_bw() +
+    theme(axis.text.y = element_text(size = 10),
+          axis.title.x = element_text(size = 14),
+          axis.text.x = element_text(size = 14),
+          axis.title.y = element_text(size = 14),
+          strip.text = element_text(size = 16),
+          legend.position = "right")
+  
+  # Print the plot
+  print(plot)
+}
+
+# Apply the function to each farm dam ID
+for (farmdam_id in farms$FarmDam_ID) {
+  plot_emissions(farmdam_id)
+}
+```
+
+
+
+## CH4 emission
+
+```{r, include=TRUE, message=FALSE, warning=FALSE}
+
+# Define a function to process and plot data for a given FarmDam_ID
+plot_emissions2 <- function(farmdam_id) {
+  # Extract start and end times for the current farm dam
+  start_time <- farms %>% 
+    filter(FarmDam_ID == farmdam_id) %>% 
+    select(TimeStart) %>% 
+    pull()
+  
+  end_time <- farms %>% 
+    filter(FarmDam_ID == farmdam_id) %>% 
+    select(TimeEnd) %>% 
+    pull()
+  
+  emission_start_time <- as.POSIXct(strptime(start_time, "%d/%m/%Y %H:%M", tz="UTC"))
+  emission_end_time <- as.POSIXct(strptime(end_time, "%d/%m/%Y %H:%M", tz="UTC"))
+  
+  start <- as.Date(emission_start_time)
+  end <- as.Date(emission_end_time)
+  
+  # Filter and summarize CO2 data
+  CH4_filtered_data <- emission_data %>% 
+    filter(Date.Time.UTC.10 >= emission_start_time & Date.Time.UTC.10 <= emission_end_time) %>% 
+    filter(Total.Methane.Est...mg.m.2.day. > 0) %>% # Remove negative emission logs
+    group_by(Site) %>%
+    summarise(Latitude = mean(Latitude..DD., na.rm = TRUE),
+              Longitude = mean(Longitude..DD., na.rm = TRUE),
+              AV = mean(Total.Methane.Est...mg.m.2.day. , na.rm = TRUE),
+              SD = sd(Total.Methane.Est...mg.m.2.day. ),
+              N = length(Total.Methane.Est...mg.m.2.day. ),
+              SE = SD / sqrt(N)) %>%
+    mutate(Gas = "CH4")
+  
+
+  # Generate a barplot for emissions
+  plot <- ggplot(CH4_filtered_data, aes(x = Site, y = AV)) +
+    geom_bar(position = "identity", stat = "identity", fill = "#1f78b4") +
+    geom_errorbar(aes(ymin = AV - SE, ymax = AV + SE), width = 0.8, size = 1.1) +
+    
+      geom_text(aes(label = paste0("n = ", N)), 
+            position = position_stack(vjust = 0.5), 
+            vjust = -0.5, 
+            size = 6) +
+    
+    labs(title = paste("Farm Dam ID:", farmdam_id, "[", start, " to ", end, "]"),
+         subtitle = paste("Located at:", CH4_filtered_data$Latitude[1], ",", CH4_filtered_data$Longitude[1]),
+         x = "", y = bquote("CH"[4] ~ "flux " ~(mg * ~m^-2 ~day^-1))) +
+    theme_bw() +
+    theme(axis.text.y = element_text(size = 10),
+          axis.title.x = element_text(size = 14),
+          axis.text.x = element_text(size = 14),
+          axis.title.y = element_text(size = 14),
+          strip.text = element_text(size = 16),
+          legend.position = "right")
+  
+  # Print the plot
+  print(plot)
+}
+
+# Apply the function to each farm dam ID
+for (farmdam_id in farms$FarmDam_ID) {
+  plot_emissions2(farmdam_id)
+}
+```
+
+## Water Testing Results
+
+```{r, message=FALSE, warning=FALSE}
+# Subset columns containing "KAREN_JARLING"
+karen_jarling_data <- water_data %>%
+  select(contains(MyFarmer) | contains("sample"))
+
+# Select rows 7 and 9 (Total N and P)
+selected_rows <- karen_jarling_data [c(7, 9), ] #select NP total rows
+
+gathered_rows <- gather(selected_rows,key = "FarmDam", value = "Value",-Client_SampleID) %>%
+  rename(NP = Client_SampleID ) %>% 
+  select(FarmDam, NP, Value) # reorder the columns
+
+
+
+# Create a nice table with gt
+gathered_rows  %>%
+  gt() %>%
+  tab_header(
+    title = "Farm Dam Water Quality",
+    subtitle = "Nitrogen (N)  and Phosphate (P) content"
+  ) %>%
+  cols_label(
+    FarmDam = "Farm Dam ID",
+     NP = "Total NP",
+    Value = "Value"
+  ) %>%
+  tab_style(
+    style = list(
+      cell_fill(color = "lightblue"),
+      cell_text(weight = "bold")
+    ),
+    locations = cells_title(groups = "title")
+  ) %>%
+  tab_style(
+    style = cell_borders(sides = "all", weight = px(1)),
+    locations = cells_body()
+  )
+```
+
