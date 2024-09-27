@@ -29,6 +29,13 @@ end_time <- select (field_data,TimeEnd,FarmDam_ID) %>% filter(FarmDam_ID == MyFa
 emission_end_time = as.POSIXct(strptime(end_time$TimeEnd,"%d/%m/%Y %H:%M",  tz="UTC"))
 emission_end_time
 
+#Dates for plotting
+start <-  as.Date(emission_start_time)
+start
+end<- as.Date(emission_end_time)
+end
+
+
 setwd("C:/Users/poles/Documents/00Deakin_Docs/R/BCL_R/FarmDams/DATA_Toowoomba")
 
 
@@ -133,6 +140,13 @@ end_time <- select (field_data,TimeEnd,FarmDam_ID) %>% filter(FarmDam_ID == MyFa
 emission_end_time = as.POSIXct(strptime(end_time$TimeEnd,"%d/%m/%Y %H:%M",  tz="UTC"))
 emission_end_time
 
+#Dates for plotting
+start <-  as.Date(emission_start_time)
+start
+end<- as.Date(emission_end_time)
+end
+
+
 setwd("C:/Users/poles/Documents/00Deakin_Docs/R/BCL_R/FarmDams/DATA_Toowoomba") #back to your R script location
 
 
@@ -220,6 +234,12 @@ emission_start_time
 end_time <- select (field_data,TimeEnd,FarmDam_ID) %>% filter(FarmDam_ID == MyFarmDam) 
 emission_end_time = as.POSIXct(strptime(end_time$TimeEnd,"%d/%m/%Y %H:%M",  tz="UTC"))
 emission_end_time
+
+#Dates for plotting
+start <-  as.Date(emission_start_time)
+start
+end<- as.Date(emission_end_time)
+end
 
 setwd("C:/Users/poles/Documents/00Deakin_Docs/R/BCL_R/FarmDams/DATA_Toowoomba") #back to your R script location
 
