@@ -28,15 +28,19 @@ img_grob <- rasterGrob(img, width = unit(1, "npc"), height = unit(1, "npc"))# Cr
 setwd("C:/Users/poles/Documents/00Deakin_Docs/R/BCL_R/FarmDams/DATA_Toowoomba/PONDI/PONDI_DATA")
 emission_data <- read.csv("RAW_MethaneData_Lawrence_McLiver_All.csv") #also on Teams downloaded from deployed Pondi.
 names(emission_data)
-emission_data$Date.Time.UTC.10 <- as.POSIXct(strptime(emission_data$Date.Time.UTC.10 ,"%d/%m/%Y %H:%M", tz="UTC"))#convert to time format that R can  work with
+emission_data$Date.Time.UTC.10 <- as.POSIXct(emission_data$Date.Time.UTC.10 ,"%Y-%m-%d %H:%M", tz="UTC")#convert to time format that R can  work with
 
 start_time <- select(field_data,TimeStart,FarmDam_ID) %>% filter(FarmDam_ID == MyFarmDam )
 emission_start_time <-  as.POSIXct(strptime(start_time$TimeStart, "%d/%m/%Y %H:%M", tz="UTC"))
 emission_start_time
+start <-  as.Date(emission_start_time)
+start
 
 end_time <- select (field_data,TimeEnd,FarmDam_ID) %>% filter(FarmDam_ID == MyFarmDam) 
 emission_end_time = as.POSIXct(strptime(end_time$TimeEnd,"%d/%m/%Y %H:%M",  tz="UTC"))
 emission_end_time
+end<- as.Date(emission_end_time)
+end
 
 setwd("C:/Users/poles/Documents/00Deakin_Docs/R/BCL_R/FarmDams/DATA_Toowoomba") #back to working directory of your R script location
 
@@ -44,6 +48,9 @@ setwd("C:/Users/poles/Documents/00Deakin_Docs/R/BCL_R/FarmDams/DATA_Toowoomba") 
 CO2_filtered_data <- emission_data %>% 
                  filter(Date.Time.UTC.10 >= emission_start_time & Date.Time.UTC.10 <= emission_end_time) %>% 
                  filter(Total.CO2.Est...mg.m.2.day. > 0)     %>% ##Remove negative emission logs
+                   
+                  mutate(Total.CO2.Est...mg.m.2.day. =  Total.CO2.Est...mg.m.2.day./1000) %>% #get emissions in g (not mg)
+
                 group_by(Site) %>%
                 summarise(Latitude = mean(Latitude..DD., na.rm=T),
                           Longitude = mean (Longitude..DD., na.rm=T),
@@ -61,8 +68,14 @@ CO2_filtered_data
 #CH4_filtered_data (84 x – methane (CH4) = CO2 equivalent):
 CH4_filtered_data <- emission_data %>% 
                filter(Date.Time.UTC.10 >= emission_start_time & Date.Time.UTC.10 <= emission_end_time) %>% 
-          filter(Total.Methane.Est...mg.m.2.day. > 0) %>% #Remove negative emission logs
-               group_by(Site) %>%                 summarise(Latitude = mean(Latitude..DD., na.rm=T),
+                filter(Total.Methane.Est...mg.m.2.day. > 0) %>% #Remove negative emission logs
+  
+                mutate(Total.Methane.Est...mg.m.2.day. =  Total.Methane.Est...mg.m.2.day./1000) %>% #get emissions in g (not mg)
+
+              group_by(Site) %>% 
+              summarise(Latitude = mean(Latitude..DD., na.rm=T),
+
+                
                            Longitude = mean (Longitude..DD., na.rm=T),
                 
                                   AV=mean   (Total.Methane.Est...mg.m.2.day. *84 , na.rm = T),
@@ -73,20 +86,24 @@ CH4_filtered_data <- emission_data %>%
 CH4_filtered_data
 
 filtered_data <- rbind(CO2_filtered_data, CH4_filtered_data)#join CH4 and CO2 emission stats data
-max(filtered_data$AV) #1558.175
-
-
- 
- k1 <- ggplot(filtered_data, aes(x = Gas, y = AV)) +
+max(filtered_data$AV) #781.5339 mg or 0.7815339 grams
+filtered_data
+filtered_data$Emission <-ifelse(filtered_data$AV >100, "High", "Low")#high values would be 80-100 g CO2 m-2 day-1 whereas low would be 0-20 g CO2 m-2 day-1 for emissions.
+  
+  
+p1 <- ggplot(filtered_data, aes(x = Gas, y = AV)) +
    annotation_custom(img_grob, xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf) +  # Full background image
-   geom_bar(position="identity", stat="identity", fill = "#f5f5f5", alpha = 0.6) +
+   geom_bar( aes(fill = Emission), position="identity", stat="identity",  alpha = 0.6) +
    geom_errorbar(aes(ymin = AV - SE, ymax = AV+ SE), width = 0.5, size = 0.9, alpha = 0.6) +
    
    labs(title = paste("Farm Dam ID:" , MyFarmDam),
    subtitle = paste("Sampling period: ",start, " to" ,end),
-    x= "", y =  bquote("CO"[2] ~ "equivalent flux " ~(mg*~m^-2 ~day^-1))) +
+     fill= "Emission level: ", 
+    x= "", y =  bquote("CO"[2] ~ "equivalent flux " ~(g*~m^-2 ~day^-1))) +
    
-   scale_y_continuous(limits = c(0, 3000))   +
+   scale_y_continuous(limits = c(0, 1))   +
+   scale_fill_manual(values = c("grey"))+
+
    
    theme_bw() +
    theme(axis.text.y = element_text(size = 10),
@@ -94,36 +111,50 @@ max(filtered_data$AV) #1558.175
          axis.text.x = element_text(size = 14),
          axis.title.y = element_text(size = 14),
          strip.text = element_text(size = 16),
-         legend.position = "right",
-         plot.background = element_blank())  # Ensure no background color hides the image
- 
-k1
+         plot.background = element_blank(),  # Ensure no background color hides the image
+     legend.position = c(0.8, 0.9),  # Position the legend on the right
+    legend.text = element_text(size = 12),  # Increase legend text size
+    legend.title = element_text(size = 14, face = "bold"),  # Bold legend title
+    legend.background = element_rect(fill = "white", color = "black"),  # Box around the legend
+    panel.grid.major = element_line(color = "gray80", linetype = "dotted"),  # Soft grid lines
+    panel.grid.minor = element_blank())  # Remove minor grid lines
 
- #PLOT MyFarmDam "Kimberley_Robertson_02" ============
-MyFarmDam <- "Kimberley_Robertson_02"  #Choose one farm dam to visualize
-img <- readJPEG("C:/Users/poles/Documents/00Deakin_Docs/R/BCL_R/FarmDams/DATA_Toowoomba/PHOTOS/PHOTOS_FarmDams/Kimberley_Robertson_02_FarmDam_PawelToowoomba_20240514.jpg")
+p1
+
+#PLOT MyFarmDam "Lawrence_McLiver_02" ============
+MyFarmDam <- "Lawrence_McLiver_02"  #Choose one farm dam to visualize
+
+#Load backgrond image
+img <- readJPEG("C:/Users/poles/Documents/00Deakin_Docs/R/BCL_R/FarmDams/DATA_Toowoomba/PHOTOS/PHOTOS_FarmDams/SunshineCoast FarmDamCampaignPHOTOS/Lawrence_McLiver_02_20240717.jpg")
 img_grob <- rasterGrob(img, width = unit(1, "npc"), height = unit(1, "npc"))# Create a grob for the background image
 
 #Load emission data:
 setwd("C:/Users/poles/Documents/00Deakin_Docs/R/BCL_R/FarmDams/DATA_Toowoomba/PONDI/PONDI_DATA")
 emission_data <- read.csv("RAW_MethaneData_Lawrence_McLiver_All.csv") #also on Teams downloaded from deployed Pondi.
-emission_data$Date.Time.UTC.10 <-   as.POSIXct(emission_data$Date.Time.UTC.10 ,"%d/%m/%Y %H:%M",  tz="UTC")#convert to time format that R can  work with
+names(emission_data)
+emission_data$Date.Time.UTC.10 <- as.POSIXct(emission_data$Date.Time.UTC.10 ,"%Y-%m-%d %H:%M", tz="UTC")#convert to time format that R can  work with
 
 start_time <- select(field_data,TimeStart,FarmDam_ID) %>% filter(FarmDam_ID == MyFarmDam )
 emission_start_time <-  as.POSIXct(strptime(start_time$TimeStart, "%d/%m/%Y %H:%M", tz="UTC"))
 emission_start_time
+start <-  as.Date(emission_start_time)
+start
 
 end_time <- select (field_data,TimeEnd,FarmDam_ID) %>% filter(FarmDam_ID == MyFarmDam) 
 emission_end_time = as.POSIXct(strptime(end_time$TimeEnd,"%d/%m/%Y %H:%M",  tz="UTC"))
 emission_end_time
+end<- as.Date(emission_end_time)
+end
 
-setwd("C:/Users/poles/Documents/00Deakin_Docs/R/BCL_R/FarmDams/DATA_Toowoomba") #back to your R script location
-
+setwd("C:/Users/poles/Documents/00Deakin_Docs/R/BCL_R/FarmDams/DATA_Toowoomba") #back to working directory of your R script location
 
 #CO2_filtered_data =#GET Average emission stats for plotting:
 CO2_filtered_data <- emission_data %>% 
                  filter(Date.Time.UTC.10 >= emission_start_time & Date.Time.UTC.10 <= emission_end_time) %>% 
                  filter(Total.CO2.Est...mg.m.2.day. > 0)     %>% ##Remove negative emission logs
+                   
+                  mutate(Total.CO2.Est...mg.m.2.day. =  Total.CO2.Est...mg.m.2.day./1000) %>% #get emissions in g (not mg)
+
                 group_by(Site) %>%
                 summarise(Latitude = mean(Latitude..DD., na.rm=T),
                           Longitude = mean (Longitude..DD., na.rm=T),
@@ -141,8 +172,14 @@ CO2_filtered_data
 #CH4_filtered_data (84 x – methane (CH4) = CO2 equivalent):
 CH4_filtered_data <- emission_data %>% 
                filter(Date.Time.UTC.10 >= emission_start_time & Date.Time.UTC.10 <= emission_end_time) %>% 
-          filter(Total.Methane.Est...mg.m.2.day. > 0) %>% #Remove negative emission logs
-               group_by(Site) %>%                 summarise(Latitude = mean(Latitude..DD., na.rm=T),
+                filter(Total.Methane.Est...mg.m.2.day. > 0) %>% #Remove negative emission logs
+  
+                mutate(Total.Methane.Est...mg.m.2.day. =  Total.Methane.Est...mg.m.2.day./1000) %>% #get emissions in g (not mg)
+
+              group_by(Site) %>% 
+              summarise(Latitude = mean(Latitude..DD., na.rm=T),
+
+                
                            Longitude = mean (Longitude..DD., na.rm=T),
                 
                                   AV=mean   (Total.Methane.Est...mg.m.2.day. *84 , na.rm = T),
@@ -153,20 +190,25 @@ CH4_filtered_data <- emission_data %>%
 CH4_filtered_data
 
 filtered_data <- rbind(CO2_filtered_data, CH4_filtered_data)#join CH4 and CO2 emission stats data
-max(filtered_data$AV) #1558.175
-
+max(filtered_data$AV) #781.5339 mg or 0.7815339 grams
+filtered_data
+filtered_data$Emission <-ifelse(filtered_data$AV >100, "High", "Low")#high values would be 80-100 g CO2 m-2 day-1 whereas low would be 0-20 g CO2 m-2 day-1 for emissions.
+  
+  
+p2 <- ggplot(filtered_data, aes(x = Gas, y = AV)) +
+   annotation_custom(img_grob, xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf) +  # Full background image
+   geom_bar( aes(fill = Emission), position="identity", stat="identity",  alpha = 0.6) +
+   geom_errorbar(aes(ymin = AV - SE, ymax = AV+ SE), width = 0.5, size = 0.9, alpha = 0.6) +
+   
+    scale_fill_manual(values = c("grey"))+
 
  
-k2 <- ggplot(filtered_data, aes(x = Gas, y = AV)) +
-   annotation_custom(img_grob, xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf) +  # Full background image
-   geom_bar(position="identity", stat="identity", fill = "#f5f5f5", alpha = 0.6) +
-   geom_errorbar(aes(ymin = AV - SE, ymax = AV+ SE), width = 0.5, size = 0.9, alpha = 0.6) +
-   labs(title = paste("Farm Dam ID:" , MyFarmDam),
+     labs(title = paste("Farm Dam ID:" , MyFarmDam),
    subtitle = paste("Sampling period: ",start, " to" ,end),
-    x= "", y =  bquote("CO"[2] ~ "equivalent flux " ~(mg*~m^-2 ~day^-1))) +
-  
-   scale_y_continuous(limits = c(0, 3000))   +
-
+     fill= "Emission level: ", 
+    x= "", y =  bquote("CO"[2] ~ "equivalent flux " ~(g*~m^-2 ~day^-1))) +
+   
+   scale_y_continuous(limits = c(0, 1))   +
    
    theme_bw() +
    theme(axis.text.y = element_text(size = 10),
@@ -174,16 +216,15 @@ k2 <- ggplot(filtered_data, aes(x = Gas, y = AV)) +
          axis.text.x = element_text(size = 14),
          axis.title.y = element_text(size = 14),
          strip.text = element_text(size = 16),
-         legend.position = "right",
-         plot.background = element_blank())  # Ensure no background color hides the image
+         plot.background = element_blank(),  # Ensure no background color hides the image
+     legend.position = c(0.2, 0.9),  # Position the legend on the right
+    legend.text = element_text(size = 12),  # Increase legend text size
+    legend.title = element_text(size = 14, face = "bold"),  # Bold legend title
+    legend.background = element_rect(fill = "white", color = "black"),  # Box around the legend
+    panel.grid.major = element_line(color = "gray80", linetype = "dotted"),  # Soft grid lines
+    panel.grid.minor = element_blank())  # Remove minor grid lines
 
-k2 
-
- 
- 
-
-
-
+p2
 
 
 #PLOT WATER:==========
@@ -191,7 +232,7 @@ k2
 #Lakes and reservoirs: 5-50 micrograms /L (0.000005 to 0.00005 g/L) (as total-phosphorus) or in mg/L = 50/1000
 #link: https://www.dcceew.gov.au/environment/protection/npi/substances/fact-sheets/total-phosphorus
  
-MyFarmDam_water <- water_data %>%  select(contains("Kimberley_Robertson") | contains("sample"))
+MyFarmDam_water <- water_data %>%  select(contains("Lawrence_McLiver") | contains("sample"))
 MyFarmDam_water
 
 select_Phosphate <-  MyFarmDam_water [7, ]
@@ -200,9 +241,11 @@ P <- gather(select_Phosphate,  FarmDamID, Content_mgL,-Client_SampleID)%>%
 P$Content_mgL <- as.numeric(P$Content_mgL)
 P
 
-p1 <- ggplot(data = P, aes(x = FarmDamID, y = Content_mgL)) +
+Pplot <- ggplot(data = P, aes(x = FarmDamID, y = Content_mgL)) +
   # Add points with NP_Level color mapping
-  geom_point(aes(col = NP_Level), size = 4, alpha = 0.8, shape = 21, stroke = 1.2) +
+  geom_point(aes(fill = NP_Level), size = 4, alpha = 0.8, shape = 21, stroke = 1.2) +
+  
+  scale_fill_manual(values = c("green"))+
   
   # Add red horizontal dashed line at y = 0.05
   geom_hline(aes(yintercept = 0.05), linetype = "dashed", color = "red", size = 1) +
@@ -231,7 +274,7 @@ p1 <- ggplot(data = P, aes(x = FarmDamID, y = Content_mgL)) +
     panel.grid.major = element_line(color = "gray80", linetype = "dotted"),  # Soft grid lines
     panel.grid.minor = element_blank())  # Remove minor grid lines
 
-p1
+Pplot
 
 
 #Lakes and reservoirs: 100-500 micrograms /L (0.0001 to 0.0005 g/L) (as total-nitrogen)
@@ -244,9 +287,12 @@ N <- gather(select_Nitrogen,  FarmDamID, Content_mgL,-Client_SampleID)%>%
 N$Content_mgL <- as.numeric(N$Content_mgL)
 N
 
-n1 <- ggplot(data = N, aes(x = FarmDamID, y = Content_mgL)) +
+Nplot <- ggplot(data = N, aes(x = FarmDamID, y = Content_mgL)) +
   # Add points with NP_Level color mapping
-  geom_point(aes(col = NP_Level), size = 4, alpha = 0.8, shape = 21, stroke = 1.2) +
+  geom_point(aes(fill = NP_Level), size = 4, alpha = 0.8, shape = 21, stroke = 1.2) +
+  
+    scale_fill_manual(values = c("red","green"))+
+
   
   # Add red horizontal dashed line at y = 0.05
   geom_hline(aes(yintercept = 0.5), linetype = "dashed", color = "red", size = 1) +
@@ -275,10 +321,11 @@ n1 <- ggplot(data = N, aes(x = FarmDamID, y = Content_mgL)) +
     panel.grid.major = element_line(color = "gray80", linetype = "dotted"),  # Soft grid lines
     panel.grid.minor = element_blank())  # Remove minor grid lines
 
-n1
+Nplot
 
 
 #Combined PLOT:===========
-grid.arrange(k1, k2, p1, n1, ncol = 2, nrow = 2)
-grid_plot <- grid.arrange(k1, k2, p1, n1, ncol = 2, nrow = 2)
-ggsave("combined_plot_kimberley.png", grid_plot, width = 10, height = 11, units = "in")
+grid.arrange(p1,p2, Pplot, Nplot, ncol = 2, nrow = 2)
+grid_plot <- grid.arrange(p1,p2, Pplot, Nplot, ncol = 2, nrow = 2)
+
+ggsave("combined_Plot4LawrenceUpdated.png", grid_plot, width = 10, height = 11, units = "in")
