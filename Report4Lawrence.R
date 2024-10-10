@@ -93,31 +93,42 @@ filtered_data$Emission <-ifelse(filtered_data$AV >100, "High", "Low")#high value
   
 p1 <- ggplot(filtered_data, aes(x = Gas, y = AV)) +
    annotation_custom(img_grob, xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf) +  # Full background image
-   geom_bar( aes(fill = Emission), position="identity", stat="identity",  alpha = 0.6) +
-   geom_errorbar(aes(ymin = AV - SE, ymax = AV+ SE), width = 0.5, size = 0.9, alpha = 0.6) +
+   geom_bar(aes(fill = Emission), position="identity", stat="identity", alpha = 0.6) +
+   geom_errorbar(aes(ymin = AV - SE, ymax = AV + SE), width = 0.5, size = 0.9, alpha = 0.6) +
    
    labs(title = paste("Farm Dam ID:" , MyFarmDam),
-   subtitle = paste("Sampling period: ",start, " to" ,end),
-     fill= "Emission level: ", 
-    x= "", y =  bquote("CO"[2] ~ "equivalent flux " ~(g*~m^-2 ~day^-1))) +
+        subtitle = paste("Sampling period: ", start, " to" , end),
+        fill= "Emission level: ", 
+        x= "", 
+        y = bquote("CO"[2] ~ "equivalent flux " ~(g*~m^-2 ~day^-1))) +
    
-   scale_y_continuous(limits = c(0, 1))   +
-   scale_fill_manual(values = c("grey"))+
+     scale_y_continuous(limits = c(0,1), breaks = c(0, 0.25, .5 , 0.75,1), labels= c(0, 0.25, .5 , 0.75,100)) +
 
+
+   # Add a red horizontal line at y = 100
+   geom_hline(yintercept = 1, color = "red", size = 1, linetype="dashed") +
+   
+   # Add text label for the line
+   annotate("text", x = Inf, y = 1, label = "Maximum emission", vjust = -0.5, hjust = 1.5, color = "red", size = 5) +
+   
+   scale_fill_manual(values = c("grey")) +
    
    theme_bw() +
-   theme(axis.text.y = element_text(size = 10),
+   theme(
+         axis.text.y = element_text(size = 10, colour = c("black","black","black","black", "red")),
          axis.title.x = element_text(size = 14),
-         axis.text.x = element_text(size = 14),
+         axis.text.x = element_text(size = 14, colour = "black"),
          axis.title.y = element_text(size = 14),
          strip.text = element_text(size = 16),
          plot.background = element_blank(),  # Ensure no background color hides the image
-     legend.position = c(0.8, 0.9),  # Position the legend on the right
-    legend.text = element_text(size = 12),  # Increase legend text size
-    legend.title = element_text(size = 14, face = "bold"),  # Bold legend title
-    legend.background = element_rect(fill = "white", color = "black"),  # Box around the legend
-    panel.grid.major = element_line(color = "gray80", linetype = "dotted"),  # Soft grid lines
-    panel.grid.minor = element_blank())  # Remove minor grid lines
+         legend.position = c(.8,.8),  # Change to named position first
+         legend.text = element_text(size = 12),  # Increase legend text size
+         legend.title = element_text(size = 14, face = "bold"),  # Bold legend title
+         legend.background = element_rect(fill = "white", color = "black"),  # Box around the legend
+         panel.grid.major = element_line(color = "gray80", linetype = "dotted"),  # Soft grid lines
+      axis.ticks.y = element_blank(),
+      axis.ticks.x = element_blank(),
+         panel.grid.minor = element_blank())  # Remove minor grid lines
 
 p1
 
@@ -197,32 +208,42 @@ filtered_data$Emission <-ifelse(filtered_data$AV >100, "High", "Low")#high value
   
 p2 <- ggplot(filtered_data, aes(x = Gas, y = AV)) +
    annotation_custom(img_grob, xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf) +  # Full background image
-   geom_bar( aes(fill = Emission), position="identity", stat="identity",  alpha = 0.6) +
-   geom_errorbar(aes(ymin = AV - SE, ymax = AV+ SE), width = 0.5, size = 0.9, alpha = 0.6) +
+   geom_bar(aes(fill = Emission), position="identity", stat="identity", alpha = 0.6) +
+   geom_errorbar(aes(ymin = AV - SE, ymax = AV + SE), width = 0.5, size = 0.9, alpha = 0.6) +
    
-    scale_fill_manual(values = c("grey"))+
+   labs(title = paste("Farm Dam ID:" , MyFarmDam),
+        subtitle = paste("Sampling period: ", start, " to" , end),
+        fill= "Emission level: ", 
+        x= "", 
+        y = bquote("CO"[2] ~ "equivalent flux " ~(g*~m^-2 ~day^-1))) +
+   
+     scale_y_continuous(limits = c(0,1), breaks = c(0, 0.25, .5 , 0.75,1), labels= c(0, 0.25, .5 , 0.75,100)) +
 
- 
-     labs(title = paste("Farm Dam ID:" , MyFarmDam),
-   subtitle = paste("Sampling period: ",start, " to" ,end),
-     fill= "Emission level: ", 
-    x= "", y =  bquote("CO"[2] ~ "equivalent flux " ~(g*~m^-2 ~day^-1))) +
+
+   # Add a red horizontal line at y = 100
+   geom_hline(yintercept = 1, color = "red", size = 1, linetype="dashed") +
    
-   scale_y_continuous(limits = c(0, 1))   +
+   # Add text label for the line
+   annotate("text", x = Inf, y = 1, label = "Maximum emission", vjust = -0.5, hjust = 1.5, color = "red", size = 5) +
+   
+   scale_fill_manual(values = c("grey")) +
    
    theme_bw() +
-   theme(axis.text.y = element_text(size = 10),
+   theme(
+         axis.text.y = element_text(size = 10, colour = c("black","black","black","black", "red")),
          axis.title.x = element_text(size = 14),
-         axis.text.x = element_text(size = 14),
+         axis.text.x = element_text(size = 14, colour = "black"),
          axis.title.y = element_text(size = 14),
          strip.text = element_text(size = 16),
          plot.background = element_blank(),  # Ensure no background color hides the image
-     legend.position = c(0.2, 0.9),  # Position the legend on the right
-    legend.text = element_text(size = 12),  # Increase legend text size
-    legend.title = element_text(size = 14, face = "bold"),  # Bold legend title
-    legend.background = element_rect(fill = "white", color = "black"),  # Box around the legend
-    panel.grid.major = element_line(color = "gray80", linetype = "dotted"),  # Soft grid lines
-    panel.grid.minor = element_blank())  # Remove minor grid lines
+         legend.position = c(.2,.8),  # Change to named position first
+         legend.text = element_text(size = 12),  # Increase legend text size
+         legend.title = element_text(size = 14, face = "bold"),  # Bold legend title
+         legend.background = element_rect(fill = "white", color = "black"),  # Box around the legend
+         panel.grid.major = element_line(color = "gray80", linetype = "dotted"),  # Soft grid lines
+      axis.ticks.y = element_blank(),
+      axis.ticks.x = element_blank(),
+         panel.grid.minor = element_blank())  # Remove minor grid lines
 
 p2
 
@@ -251,7 +272,7 @@ Pplot <- ggplot(data = P, aes(x = FarmDamID, y = Content_mgL)) +
   geom_hline(aes(yintercept = 0.05), linetype = "dashed", color = "red", size = 1) +
   
   # Annotate red text at the center of the plot
-  annotate("text", x = mean(as.numeric(factor(P$FarmDamID))), y = 0.051, 
+  annotate("text", x = mean(as.numeric(factor(P$FarmDamID))), y = 0.045, 
            label = "Guideline level", color = "red", size = 5, hjust = 0.5, vjust = -0.5) +
   
   # Add titles and labels
@@ -328,4 +349,4 @@ Nplot
 grid.arrange(p1,p2, Pplot, Nplot, ncol = 2, nrow = 2)
 grid_plot <- grid.arrange(p1,p2, Pplot, Nplot, ncol = 2, nrow = 2)
 
-ggsave("combined_Plot4LawrenceUpdated.png", grid_plot, width = 10, height = 11, units = "in")
+ggsave("combined_Plot4LawrenceUpdated2.png", grid_plot, width = 10, height = 11, units = "in")
